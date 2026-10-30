@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Trade</title>
+<style>
+  :root {
+    --bg: #111; --panel: #1c1c1c; --line: #2e2e2e; --text: #ddd; --muted: #8a8a8a;
+    --up: #26a69a; --down: #ef5350; --accent: #42a5f5; --warn: #ffb74d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 1400px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 16px; }
+  h1 span { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 8px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+  input, select { background: #111; color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+                  padding: 8px 10px; font-size: 14px; font-family: inherit; color-scheme: dark; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  details { margin-top: 12px; } summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  details .grid { margin-top: 12px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  button { border: 0; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  button.primary { background: var(--accent); color: #0b1d2e; }
+  button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .error { color: var(--down); font-size: 13px; }
+  .bar { height: 8px; background: #111; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+  .bar div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .status { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); flex-wrap: wrap; gap: 8px; }
+  .feed { font-family: Consolas, monospace; font-size: 12px; max-height: 150px; overflow: auto; margin-top: 8px; color: var(--muted); }
+  .up { color: var(--up); } .down { color: var(--down); } .neutral { color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .card { background: #111; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .card .k { font-size: 11px; color: var(--muted); } .card .v { font-size: 20px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #chart { width: 100%; height: 820px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--panel); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .table-wrap { max-height: 500px; overflow: auto; }
+  .hidden { display: none; }
+  nav { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+  nav button { background: none; color: var(--muted); border-radius: 0; border-bottom: 2px solid transparent; padding: 10px 16px; }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #111; border: 1px solid var(--line); }
+  .pill.running { color: var(--up); border-color: var(--up); } .pill.paused { color: var(--warn); border-color: var(--warn); }
+  .pill.stopped { color: var(--muted); } .pill.off { color: var(--down); border-color: var(--down); }
+  .robot-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+  button.danger { background: var(--down); color: #2a0b0b; } button.warn { background: var(--warn); color: #2b1c05; }
+  button.go { background: var(--up); color: #062420; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .two .panel { margin-bottom: 0; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+  .log { font-family: Consolas, monospace; font-size: 12px; max-height: 260px; overflow: auto; }
+  .log .warn { color: var(--warn); } .log .error { color: var(--down); }
+  .reasoning { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .banner { border: 1px solid var(--warn); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI Trade <span id="model"></span></h1>
+  <nav aria-label="Telas">
+    <button type="button" id="tab-btn-backtest" class="active">Backtests</button>
+    <button type="button" id="tab-btn-robot">Automação</button>
+  </nav>
+
+  <div id="tab-backtest">
+  <form id="form" class="panel" novalidate>
+    <div class="grid">
+      <label>Ativo <input id="symbol" required placeholder="WIN$N"></label>
+      <label>Tempo gráfico <select id="timeframe"></select></label>
+      <label>Início <input id="start" type="date" required></label>
+      <label>Fim <input id="end" type="date" required></label>
+    </div>
+    <details>
+      <summary>Avançado (custo e stop)</summary>
+      <div class="grid">
+        <label>Candles enviados à IA <input id="bars" type="number" min="1" max="1000"></label>
+        <label>Analisar a cada K candles <input id="step" type="number" min="1"></label>
+        <label>Máximo de chamadas à IA <input id="max_calls" type="number" min="1"></label>
+        <label>Stop (pontos, 0 = sem stop) <input id="stop_points" type="number" min="0"></label>
+      </div>
+      <div class="hint">Cada chamada à IA é cobrada. O backtest para ao atingir o máximo de chamadas.</div>
+    </details>
+    <div class="actions">
+      <button class="primary" id="run" type="submit">Rodar backtest</button>
+      <button class="ghost" id="cancel" type="button" disabled>Cancelar</button>
+      <span class="error" id="error" role="alert"></span>
+    </div>
+  </form>
+
+  <section id="progress" class="panel hidden" aria-live="polite">
+    <div class="status"><span id="status-text"></span><span id="status-count"></span></div>
+    <div class="bar"><div id="bar"></div></div>
+    <div class="feed" id="feed"></div>
+  </section>
+
+  <section id="results" class="hidden">
+    <div class="panel"><div class="cards" id="cards"></div></div>
+    <div class="panel"><div id="chart"></div></div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Candle</th><th>Lado</th><th class="num">Conf.</th><th class="num">Entrada</th>
+            <th class="num">Saída</th><th class="num">Pontos</th><th>Raciocínio da IA</th></tr></thead>
+          <tbody id="trades"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <div id="tab-robot" class="hidden">
+    <div class="panel">
+      <div class="robot-head">
+        <span class="pill stopped" id="r-state">Desligado</span>
+        <span class="pill off" id="r-ws">Desconectado</span>
+        <span id="r-reason"></span>
+      </div>
+      <div id="r-banner" class="banner hidden"></div>
+      <div class="actions" style="margin-top:0">
+        <button class="go" id="r-start" type="button">Ligar</button>
+        <button class="warn" id="r-pause" type="button">Pausar</button>
+        <button class="ghost" id="r-stop" type="button">Desligar</button>
+        <button class="danger" id="r-flatten" type="button">Zerar posição</button>
+        <span class="error" id="r-error" role="alert"></span>
+      </div>
+      <div class="hint">Pausar: não abre novas posições. Zerar: fecha agora e pausa. Desligar: fecha a posição e para o robô.</div>
+    </div>
+
+    <div class="panel"><div class="cards" id="r-cards"></div></div>
+
+    <div class="two">
+      <div class="panel"><h2>Posição</h2><div id="r-position"></div></div>
+      <div class="panel"><h2>Último sinal da IA</h2><div id="r-signal"></div></div>
+    </div>
+
+    <form id="r-form" class="panel" novalidate>
+      <h2>Parâmetros</h2>
+      <div class="grid">
+        <label>Modo <select id="p-mode"><option value="paper">Simulação (sem ordens)</option><option value="mt5">MetaTrader 5 (ordens na conta)</option></select></label>
+        <label>Ativo <input id="p-symbol" placeholder="WINZ26"></label>
+        <label>Tempo gráfico <select id="p-timeframe"></select></label>
+        <label>Candles para a IA <input id="p-bars" type="number" min="1"></label>
+        <label>Contratos <input id="p-volume" type="number" min="1" step="1"></label>
+        <label>Stop (pontos) <input id="p-stop_points" type="number" min="1"></label>
+        <label>Confiança mínima (0 a 1) <input id="p-min_confidence" type="number" min="0" max="1" step="0.05"></label>
+        <label>Máx. trades por dia <input id="p-max_trades_per_day" type="number" min="1"></label>
+        <label>Perda máx. no dia (R$) <input id="p-max_daily_loss" type="number" min="1"></label>
+        <label>Atraso máx. da IA (s) <input id="p-max_signal_delay" type="number" min="1"></label>
+      </div>
+      <div class="actions"><button class="ghost" id="r-save" type="submit">Aplicar parâmetros</button>
+        <span class="hint" style="margin:0">Ativo, tempo gráfico e modo só mudam com o robô desligado.</span></div>
+    </form>
+
+    <div class="two">
+      <div class="panel"><h2>Eventos</h2><div class="log" id="r-events"></div></div>
+      <div class="panel"><h2>Operações</h2><div class="table-wrap">
+        <table><thead><tr><th>Hora</th><th>Lado</th><th class="num">Entrada</th><th class="num">Saída</th><th class="num">R$</th><th>Motivo</th></tr></thead>
+        <tbody id="r-trades"></tbody></table></div></div>
+    </div>
+  </div>
+</main>
+
+<script src="/plotly.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ["symbol", "timeframe", "start", "end", "bars", "step", "max_calls", "stop_points"];
+const STORE = "ai-trade-form";
+const STATUS = { queued: "Na fila (aguardando o backtest anterior terminar)…", running: "Rodando", done: "Concluído", cancelled: "Cancelado", error: "Erro" };
+const METRICS = {
+  trades: "Trades", "taxa_acerto_%": "Acerto %", pontos: "Pontos", "resultado_$": "Resultado $",
+  fator_lucro: "Fator de lucro", "drawdown_max_$": "Drawdown máx. $", media_pontos_trade: "Média pts/trade",
+  compras: "Compras", vendas: "Vendas", acertos: "Acertos", erros: "Erros", stops: "Stops", neutros: "Neutros", chamadas_ia: "Chamadas à IA",
+};
+let jobId = null, timer = null;
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = v => `${Math.round(v * 100)}%`;
+const fmt = v => typeof v === "number" ? v.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : (v ?? "—");
+
+async function init() {
+  const d = await (await fetch("/api/defaults")).json();
+  $("timeframe").innerHTML = d.timeframes.map(t => `<option>${t}</option>`).join("");
+  $("model").textContent = d.model;
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(STORE)) || {}; } catch {}
+  for (const f of FIELDS) $(f).value = saved[f] ?? d[f];
+  for (const f of FIELDS) $(f).addEventListener("input", () => { $("error").textContent = ""; });
+}
+
+function readForm() {
+  const v = Object.fromEntries(FIELDS.map(f => [f, $(f).value.trim()]));
+  if (!v.symbol) return [null, "Informe o ativo."];
+  if (!v.start || !v.end) return [null, "Informe as datas de início e fim."];
+  if (v.start > v.end) return [null, "A data de início deve ser anterior à data de fim."];
+  for (const f of ["bars", "step", "max_calls"]) {
+    if (!(Number(v[f]) >= 1)) return [null, "Os campos avançados devem ser números maiores que zero."];
+    v[f] = Number(v[f]);
+  }
+  if (!(Number(v.stop_points) >= 0) || v.stop_points === "") return [null, "O stop deve ser 0 ou maior."];
+  v.stop_points = Number(v.stop_points);
+  return [v, null];
+}
+
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const [body, err] = readForm();
+  if (err) { $("error").textContent = err; return; }
+  try { localStorage.setItem(STORE, JSON.stringify(body)); } catch {}
+  setRunning(true);
+  $("results").classList.add("hidden");
+  const res = await fetch("/api/backtests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = Array.isArray(data.detail) ? data.detail.map(d => d.msg.replace(/^Value error, /, "")).join(" ") : data.detail;
+    $("error").textContent = msg || "Erro ao iniciar o backtest.";
+    setRunning(false);
+    return;
+  }
+  jobId = data.id;
+  render(data);
+  timer = setInterval(poll, 1000);
+});
+
+$("cancel").addEventListener("click", async () => {
+  if (!jobId) return;
+  $("cancel").disabled = true;
+  $("status-text").textContent = "Cancelando… (aguardando a chamada atual terminar)";
+  await fetch(`/api/backtests/${jobId}/cancel`, { method: "POST" });
+});
+
+async function poll() {
+  try {
+    const res = await fetch(`/api/backtests/${jobId}`);
+    render(await res.json());
+  } catch { $("status-text").textContent = "Sem conexão com o servidor…"; }
+}
+
+function setRunning(on) {
+  $("run").disabled = on;
+  $("cancel").disabled = !on;
+  $("progress").classList.toggle("hidden", !on && !jobId);
+}
+
+function render(job) {
+  const p = job.params;
+  $("progress").classList.remove("hidden");
+  $("status-text").innerHTML = `${STATUS[job.status]} · ${esc(p.symbol)} ${p.timeframe} · ${p.start} a ${p.end}`
+    + (job.error ? ` — <span class="error">${esc(job.error)}</span>` : "");
+  const count = job.total ? `${job.progress}/${job.total} chamadas` : "";
+  const waiting = job.status === "running" && job.waiting >= 3 ? `aguardando resposta da IA há ${job.waiting}s` : "";
+  $("status-count").textContent = [count, waiting, job.elapsed ? `${job.elapsed}s no total` : ""].filter(Boolean).join(" · ");
+  $("bar").style.width = job.total ? `${100 * job.progress / job.total}%` : "0";
+  $("feed").innerHTML = job.feed.slice().reverse().map(f =>
+    `<div>[${f.n}] ${f.time} → <span class="${f.direction.toLowerCase()}">${f.direction}</span> ${pct(f.confidence)}</div>`).join("");
+
+  if (["done", "cancelled", "error"].includes(job.status)) {
+    clearInterval(timer);
+    setRunning(false);
+    if (job.result) showResult(job.result);
+  }
+}
+
+function showResult(r) {
+  $("results").classList.remove("hidden");
+  $("cards").innerHTML = Object.entries(METRICS).filter(([k]) => k in r.metrics).map(([k, label]) => {
+    const v = r.metrics[k];
+    const cls = ["pontos", "resultado_$", "media_pontos_trade"].includes(k) && typeof v === "number" ? (v > 0 ? "up" : v < 0 ? "down" : "") : "";
+    return `<div class="card"><div class="k">${label}</div><div class="v ${cls}">${fmt(v)}</div></div>`;
+  }).join("");
+
+  Plotly.react("chart", r.figure.data, { ...r.figure.layout, autosize: true, height: 820,
+    paper_bgcolor: "#1c1c1c", plot_bgcolor: "#1c1c1c" }, { responsive: true });
+
+  $("trades").innerHTML = r.trades.length ? r.trades.map(t => `<tr>
+    <td>${t.time}</td><td class="${t.side === "COMPRA" ? "up" : "down"}">${t.side}</td>
+    <td class="num">${pct(t.confidence)}</td><td class="num">${fmt(t.entry)}</td><td class="num">${fmt(t.exit)}${t.stopped_out ? " (stop)" : ""}</td>
+    <td class="num ${t.points > 0 ? "up" : t.points < 0 ? "down" : "neutral"}">${t.points > 0 ? "+" : ""}${fmt(t.points)}</td><td>${esc(t.reasoning)}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="neutral">Nenhuma operação: a IA respondeu NEUTRAL em todas as chamadas.</td></tr>`;
+}
+
+const PARAMS = { mode: "s", symbol: "s", timeframe: "s", bars: "n", volume: "n", stop_points: "n", min_confidence: "n",
+                 max_trades_per_day: "n", max_daily_loss: "n", max_signal_delay: "n" };
+const STATES = { running: "Ligado", paused: "Pausado", stopped: "Desligado" };
+let ws = null, robotState = "stopped", formDirty = false;
+
+function showTab(name) {
+  for (const t of ["backtest", "robot"]) {
+    $(`tab-${t}`).classList.toggle("hidden", t !== name);
+    $(`tab-btn-${t}`).classList.toggle("active", t === name);
+  }
+  if (name === "backtest" && !$("results").classList.contains("hidden")) Plotly.Plots.resize("chart");
+}
+$("tab-btn-backtest").addEventListener("click", () => showTab("backtest"));
+$("tab-btn-robot").addEventListener("click", () => showTab("robot"));
+
+function readParams() {
+  const out = {};
+  for (const [k, type] of Object.entries(PARAMS)) {
+    const raw = $(`p-${k}`).value.trim();
+    out[k] = type === "n" ? Number(raw) : raw;
+  }
+  return out;
+}
+
+function send(action, params) {
+  $("r-error").textContent = "";
+  if (!ws || ws.readyState !== WebSocket.OPEN) { $("r-error").textContent = "Sem conexão com o servidor."; return; }
+  ws.send(JSON.stringify({ action, params }));
+}
+
+$("r-start").addEventListener("click", () => {
+  const p = readParams();
+  if (p.mode === "mt5" && !confirm(`Enviar ordens ao MetaTrader 5 em ${p.symbol}, ${p.volume} contrato(s)?`)) return;
+  formDirty = false;
+  send("start", p);
+});
+$("r-pause").addEventListener("click", () => send(robotState === "paused" ? "resume" : "pause"));
+$("r-stop").addEventListener("click", () => send("stop"));
+$("r-flatten").addEventListener("click", () => send("flatten"));
+$("r-form").addEventListener("submit", e => {
+  e.preventDefault();
+  formDirty = false;
+  send("update", readParams());
+});
+for (const k of Object.keys(PARAMS)) $(`p-${k}`).addEventListener("input", () => { formDirty = true; });
+
+function connectRobot() {
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/robot`);
+  ws.onopen = () => { $("r-ws").textContent = "Conectado"; $("r-ws").className = "pill running"; };
+  ws.onclose = () => {
+    $("r-ws").textContent = "Desconectado"; $("r-ws").className = "pill off";
+    setTimeout(connectRobot, 2000);
+  };
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === "ack") { if (!msg.ok) $("r-error").textContent = msg.error; }
+    else renderRobot(msg);
+  };
+}
+
+function renderRobot(s) {
+  robotState = s.state;
+  $("r-state").textContent = STATES[s.state];
+  $("r-state").className = `pill ${s.state}`;
+  $("r-reason").textContent = [s.ai_busy ? "IA analisando…" : "", s.reason].filter(Boolean).join(" · ");
+  const on = s.state !== "stopped";
+  $("r-start").disabled = on;
+  for (const id of ["r-stop", "r-pause", "r-flatten"]) $(id).disabled = !on;
+  $("r-pause").textContent = s.state === "paused" ? "Retomar" : "Pausar";
+  for (const k of ["mode", "symbol", "timeframe"]) $(`p-${k}`).disabled = on;
+  if (!formDirty) for (const k of Object.keys(PARAMS)) $(`p-${k}`).value = s.params[k];
+
+  const a = s.account;
+  $("r-banner").classList.toggle("hidden", !(a && a.mode === "REAL") && !s.error);
+  $("r-banner").textContent = s.error ? `Erro: ${s.error}` : "Conta REAL: as ordens usam dinheiro de verdade.";
+
+  const pnl = s.pnl_today;
+  const cards = [["Conta", a ? a.mode : "—"], ["Saldo", a ? fmt(a.balance) : "—"], ["Patrimônio", a ? fmt(a.equity) : "—"],
+                 ["Resultado hoje", fmt(pnl), pnl > 0 ? "up" : pnl < 0 ? "down" : ""], ["Trades hoje", s.trades_today]];
+  $("r-cards").innerHTML = cards.map(([k, v, cls]) =>
+    `<div class="card"><div class="k">${k}</div><div class="v ${cls || ""}">${esc(v)}</div></div>`).join("");
+
+  const p = s.position;
+  $("r-position").innerHTML = p ? `<div class="cards">
+      <div class="card"><div class="k">${esc(p.symbol)}</div><div class="v ${p.side === "COMPRA" ? "up" : "down"}">${p.side} ${fmt(p.volume)}</div></div>
+      <div class="card"><div class="k">Entrada</div><div class="v">${fmt(p.entry)}</div></div>
+      <div class="card"><div class="k">Atual</div><div class="v">${fmt(p.current)}</div></div>
+      <div class="card"><div class="k">Stop</div><div class="v">${fmt(p.stop)}</div></div>
+      <div class="card"><div class="k">Resultado</div><div class="v ${p.profit > 0 ? "up" : p.profit < 0 ? "down" : ""}">${fmt(p.profit)}</div></div>
+    </div>` : `<span class="neutral">Sem posição.</span>`;
+
+  const g = s.last_signal;
+  $("r-signal").innerHTML = g ? `<span class="${g.direction.toLowerCase()}"><b>${g.direction}</b></span> ${pct(g.confidence)}
+      <span class="neutral">· candle ${esc(g.candle)} · respondeu em ${g.delay}s</span>
+      <div class="reasoning">${esc(g.reasoning)}</div>` : `<span class="neutral">Aguardando o próximo candle fechar.</span>`;
+
+  $("r-events").innerHTML = s.events.slice().reverse().map(ev =>
+    `<div class="${ev.level}">${ev.time} ${esc(ev.text)}</div>`).join("");
+  $("r-trades").innerHTML = s.trades.slice().reverse().map(t => `<tr><td>${t.time}</td><td>${t.side}</td>
+    <td class="num">${fmt(t.entry)}</td><td class="num">${fmt(t.exit)}</td>
+    <td class="num ${t.profit > 0 ? "up" : t.profit < 0 ? "down" : "neutral"}">${fmt(t.profit)}</td><td>${esc(t.reason)}</td></tr>`).join("");
+}
+
+init().then(() => { $("p-timeframe").innerHTML = $("timeframe").innerHTML; connectRobot(); });
+</script>
+</body>
+</html>

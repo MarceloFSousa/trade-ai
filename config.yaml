@@ -1,0 +1,37 @@
+# Valores padrão. Qualquer argumento da linha de comando sobrescreve estes.
+symbol: "WIN$N"
+timeframe: "M5"          # M1, M2, M3, M5, M10, M15, M30, H1, H4, D1, W1, MN1
+bars: 50                 # quantos candles fechados enviar para a IA
+
+ai:
+  provider: "gemini"     # nome registrado em ai_trade/ai/factory.py: "gemini" ou "claude"
+  model: "gemini-3.5-flash-lite"   # ~2 s por chamada. "gemini-3.8-flash" analisa melhor mas no grátis levou 45-130 s | Claude: "claude-haiku-5-5"
+  max_tokens: 8192       # o Gemini conta o "raciocínio interno" aqui; valor baixo pode cortar a resposta
+  temperature: null      # null = padrão do modelo
+  min_interval_seconds: 6  # Gemini grátis: espaça as chamadas para respeitar o limite por minuto
+  timeout_seconds: 120     # Gemini: desiste da chamada (vira NEUTRAL) se a resposta demorar mais que isso
+
+robot:
+  symbol: "WINZ26"       # contrato vigente; séries contínuas como WIN$N não aceitam ordens. Trocar no vencimento.
+  timeframe: "M5"
+  bars: 50
+  volume: 1
+  stop_points: 300       # stop enviado junto com a ordem
+  min_confidence: 0.6
+  max_trades_per_day: 20
+  max_daily_loss: 500    # em dinheiro
+  max_signal_delay: 60   # segundos; resposta da IA mais lenta que isso é descartada
+  mode: "paper"          # paper = simulado | mt5 = ordens no terminal
+  allow_real_account: false   # trava: o robô recusa conta REAL enquanto for false
+
+prompt_file: "prompts/trader.md"
+output_dir: "output"
+
+backtest:
+  start: "2026-09-01"
+  end: "2026-10-01"
+  step: 5                # analisa a cada K candles
+  max_calls: 50          # limite de chamadas à IA (controle de custo)
+  point_value: 1.0       # valor financeiro por ponto (por contrato)
+  volume: 1              # contratos/lotes por operação
+  stop_points: 300       # mesma lógica do stop do robô; 0 = sem stop
